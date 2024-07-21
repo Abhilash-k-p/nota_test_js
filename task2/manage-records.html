@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Records</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        .error {
+            color: red;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Records</h1>
+<table border="1" id="recordsTable">
+    <thead>
+    <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Date Time</th>
+        <th>Actions</th>
+    </tr>
+    </thead>
+    <tbody>
+    <!-- Rows will be added here dynamically -->
+    </tbody>
+</table>
+
+<button id="addNewEntry">Add New Entry</button>
+
+<div id="newEntryForm" class="hidden">
+    <input type="text" id="newName" placeholder="Enter Name">
+    <button id="sendNewEntry">Send</button>
+    <button id="cancel-form">Cancel</button>
+    <p class="error" id="newEntryError"></p> <!-- show this if any error -->
+</div>
+
+<script>
+    $(document).ready(function() {
+        const BASE_URL = "http://localhost:3000";
+        let mockData = null;
+        
+        $.ajax({
+            url: BASE_URL + '/records',
+            method: 'GET',
+            success: function (response) {
+                mockData = response;
+                renderTable(response);
+            },
+            error: function (xhr, status, error) {
+                console.log('Error:', error);
+                $('#newEntryError').text(error);
+            }
+        });
+        
+        // Function to render the table rows
+        function renderTable(mockData) {
+            if (mockData) {
+                var tbody = $('#recordsTable tbody');
+                tbody.empty();
+                mockData.forEach(function(record) {
+                    tbody.append(`
+                    <tr data-id="${record.id}">
+                        <td>${record.id}</td>
+                        <td class="name">${record.name}</td>
+                        <td>${record.datetime}</td>
+                        <td>
+                            <button class="edit">Edit</button>
+                            <button class="cancel-inline-form hidden">Cancel</button>
+                            <button class="save hidden">Save</button>
+                            <button class="delete">Delete</button>
+                            <p class="error" class="hidden"></p>
+                        </td>
+                    </tr>
+                `);
+                });
+            }
+        }
+
+        // Show new entry form
+        $('#addNewEntry').on('click', function() {
+            $('#newEntryForm').removeClass('hidden');
+        });
+
+        // close entry form
+        $('#cancel-form').on('click', function() {
+            $('#newEntryForm').addClass('hidden');
+        });
+
+        // Add new entry
+        $('#sendNewEntry').on('click', function() {
+            var newName = $('#newName').val().trim();
+            if (newName === '') {
+                $('#newEntryError').text('Name cannot be empty');
+                return;
+            }
+
+            // Mock backend request for adding new entry
+            $.ajax({
+                url: BASE_URL + '/records',
+                method: 'POST',
+                data: { name: newName },
+                success: function(response) {
+                    mockData.push(response);
+                    renderTable(mockData);
+                    $('#newName').val('');
+                    $('#newEntryForm').addClass('hidden');
+                    $('#newEntryError').text('');
+                },
+                error: function() {
+                    $('#newEntryError').text('Failed to add new entry');
+                }
+            });
+        });
+
+        // Edit entry
+        $(document).on('click', '.edit', function() {
+            var row = $(this).closest('tr');
+            row.find('.name').attr('contenteditable', 'true').focus();
+            row.find('.edit').addClass('hidden');
+            row.find('.cancel-inline-form').removeClass('hidden');
+            row.find('.save').removeClass('hidden');
+        });
+
+        // cancel edit entry
+        $(document).on('click', '.cancel-inline-form', function() {
+            var row = $(this).closest('tr');
+            row.find('.name').attr('contenteditable', 'false');
+            row.find('.edit').removeClass('hidden');
+            row.find('.cancel-inline-form').addClass('hidden');
+            row.find('.save').addClass('hidden');
+        });
+
+        // Save entry
+        $(document).on('click', '.save', function() {
+            var row = $(this).closest('tr');
+            var id = row.data('id');
+            var newName = row.find('.name').text().trim();
+
+            if (newName === '') {
+                row.find('.error').text('Name cannot be empty').removeClass('hidden');
+                return;
+            }
+
+            // Mock backend request for saving entry
+            $.ajax({
+                url: BASE_URL + `/records/${id}`,
+                method: 'PATCH',
+                data: { name: newName },
+                success: function(response) {
+                    const record = mockData.find(record => record.id === id);
+                    if (record) {
+                        record.name = newName;
+                        renderTable(mockData);
+                    }
+                },
+                error: function() {
+                    row.find('.error').text('Failed to save entry').removeClass('hidden');
+                }
+            });
+        });
+
+        // Delete entry
+        $(document).on('click', '.delete', function() {
+            var row = $(this).closest('tr');
+            var id = row.data('id');
+
+            // Mock backend request for deleting entry
+            $.ajax({
+                url: BASE_URL + `/records/${id}`,
+                method: 'DELETE',
+                success: function(response) {
+                    mockData = mockData.filter(record => record.id !== id);
+                    renderTable(mockData);
+                },
+                error: function() {
+                    row.find('.error').text('Failed to delete entry').removeClass('hidden');
+                }
+            });
+        });
+    });
+</script>
+
+</body>
+</html>
